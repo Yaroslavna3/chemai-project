@@ -17,7 +17,7 @@ from typing import Any
 import pandas as pd
 
 
-REPO_ROOT = Path(__file__).resolve().parent
+REPO_ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = REPO_ROOT / "configs" / "druglikeness_experiment.json"
 PROMPT_TEMPLATE_PATH = REPO_ROOT / "configs" / "druglikeness_prompt_template.txt"
 DATA_PATH = REPO_ROOT / "data" / "graphs" / "absolute_score.csv"

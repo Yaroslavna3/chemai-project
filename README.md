@@ -7,32 +7,62 @@
 осмысленный текстовый фидбек, охватывающий химическую реализуемость, новизну,
 синтезопригодность и потенциальные риски.
 
-## Experiments framework
+## Фреймворк экспериментов
 
-The drug-likeness LLM experiments are configured through
-`configs/druglikeness_experiment.json` and
-`configs/druglikeness_prompt_template.txt`.
+Эксперименты по оценке лекарственности молекул через LLM настраиваются через:
 
-Run a dry run without VseGPT calls:
+- `configs/druglikeness_experiment.json` — модели, шкалы оценок, формат молекул,
+  способ выборки и параметры VseGPT;
+- `configs/druglikeness_prompt_template.txt` — шаблон промпта для LLM.
+
+Основные скрипты лежат в папке `scripts/`:
+
+- `scripts/run_druglikeness_experiments.py` — запуск экспериментов;
+- `scripts/analyze_grouped_results.py` — агрегация результатов и построение
+  графиков.
+
+### Проверочный запуск без VseGPT
+
+Такой запуск создает папку эксперимента, выборку молекул и отрендеренные
+промпты, но не отправляет запросы в LLM:
 
 ```bash
-python run_druglikeness_experiments.py --dry-run
+python scripts/run_druglikeness_experiments.py --dry-run
 ```
 
-Run the full experiment:
+### Полный запуск эксперимента
+
+Перед запуском нужно передать ключ VseGPT через переменную окружения:
 
 ```bash
 export VSEGPT_API_KEY="..."
-python run_druglikeness_experiments.py --config configs/druglikeness_experiment.json
+python scripts/run_druglikeness_experiments.py --config configs/druglikeness_experiment.json
 ```
 
-Analyze a completed run:
+В PowerShell:
+
+```powershell
+$env:VSEGPT_API_KEY="..."
+python scripts/run_druglikeness_experiments.py --config configs/druglikeness_experiment.json
+```
+
+### Анализ завершенного запуска
 
 ```bash
-python analyze_grouped_results.py --run-dir data/analysis/<run_folder>
+python scripts/analyze_grouped_results.py --run-dir data/analysis/<run_folder>
 ```
 
-To evaluate all molecules instead of a balanced subset, set
-`sample.strategy` to `all` in the config. Each run folder stores the resolved
-config, prompt template, rendered prompts, sample, model metadata, raw results,
-summary tables, and plots.
+### Запуск на всех молекулах
+
+Чтобы оценивать все молекулы, а не сбалансированную подвыборку, в конфиге нужно
+поменять стратегию:
+
+```json
+"sample": {
+  "strategy": "all"
+}
+```
+
+Каждая папка запуска в `data/analysis/` хранит конфиг эксперимента, шаблон
+промпта, отрендеренные промпты, выборку молекул, информацию о моделях,
+подробные результаты, сводные таблицы, графики и HTML-отчеты.
