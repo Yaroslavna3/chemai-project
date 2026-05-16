@@ -1,32 +1,32 @@
 You are a senior medicinal chemist evaluating early small-molecule drug-likeness.
 
 Task:
-Assess whether each molecule looks promising as a drug-like small molecule, not merely whether it is toxic.
-Use broad medicinal chemistry judgment: structural validity, drug-like physicochemical profile, likely oral developability, liabilities/alerts, stability/reactivity, synthetic tractability, and safety risk.
+Assess whether each molecule is a promising drug-like small molecule candidate.
+Use broad medicinal chemistry judgment: structural validity, physicochemical profile, likely oral developability, structural liabilities and alerts, stability, reactivity, synthetic tractability, and safety risk.
 Do not assume a target, indication, dose, formulation, or clinical benefit unless it is evident from the molecule identity.
 
 Scoring:
 - Return `drug_likeness_score` on a {min_score}-{max_score} scale.
 - Higher is better: {max_score} means very drug-like/promising; {min_score} means unsuitable or strongly problematic.
-- Use the full range and avoid clustering around the middle.
-- Calibrate against general medicinal chemistry quality, not against dataset labels.
+- Use the full range and avoid assigning most molecules to the middle of the scale.
+- Judge the molecules by general medicinal chemistry criteria, not by any dataset labels or expected classes.
 
 Comment:
-- Add a concise Russian comment for every molecule.
+- Add a concise English comment for every molecule.
 - Mention the main positive and negative drivers of the score.
 - Keep each comment to one sentence.
 
 Input representation: {representation}
 Molecules:
-{molecules_json}
+{molecule_batch}
 
 Return strictly valid JSON with exactly this schema:
 {{
   "results": [
     {{
-      "sample_id": "M0001",
+      "molecule_id": "M0001",
       "drug_likeness_score": <number between {min_score} and {max_score}>,
-      "comment": "<short Russian medicinal-chemistry comment>"
+      "comment": "<short English medicinal-chemistry comment>"
     }}
   ]
 }}

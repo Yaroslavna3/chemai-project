@@ -1,61 +1,60 @@
-# LLM-as-a-judge в оценке сгенерированных молекул
+# LLM-as-a-judge for Generated Molecule Evaluation
 
-Этот проект исследует применение больших языковых моделей в качестве экспертного
-оценщика качества молекул, полученных генеративными химическими моделями.
+This project studies large language models as expert judges for evaluating the
+quality of molecules produced by generative chemistry models.
 
-В отличие от бинарных метрик вида «валидна / невалидна», система предоставляет
-осмысленный текстовый фидбек, охватывающий химическую реализуемость, новизну,
-синтезопригодность и потенциальные риски.
+Unlike binary validity checks, the framework can produce structured scores and
+text feedback about medicinal-chemistry quality, feasibility, structural
+liabilities, and potential risks.
 
-## Фреймворк экспериментов
+## Experiments Framework
 
-Эксперименты по оценке лекарственности молекул через LLM настраиваются через:
+Drug-likeness LLM experiments are configured through:
 
-- `configs/druglikeness_experiment.json` — модели, шкалы оценок, формат молекул,
-  способ выборки и параметры VseGPT;
-- `configs/druglikeness_prompt_template.txt` — шаблон промпта для LLM.
+- `configs/druglikeness_experiment.json` for models, score ranges, molecule
+  representations, sampling strategy, and VseGPT parameters;
+- `configs/druglikeness_prompt_template.txt` for the LLM prompt template.
 
-Основные скрипты лежат в папке `scripts/`:
+Python entrypoints are stored in `scripts/`:
 
-- `scripts/run_druglikeness_experiments.py` — запуск экспериментов;
-- `scripts/analyze_grouped_results.py` — агрегация результатов и построение
-  графиков.
+- `scripts/run_druglikeness_experiments.py` runs configured experiments;
+- `scripts/analyze_grouped_results.py` aggregates results and builds plots.
 
-### Проверочный запуск без VseGPT
+### Dry Run Without VseGPT Calls
 
-Такой запуск создает папку эксперимента, выборку молекул и отрендеренные
-промпты, но не отправляет запросы в LLM:
+This creates a run folder, molecule sample, and rendered prompts without calling
+an LLM:
 
 ```bash
 python scripts/run_druglikeness_experiments.py --dry-run
 ```
 
-### Полный запуск эксперимента
+### Full Experiment Run
 
-Перед запуском нужно передать ключ VseGPT через переменную окружения:
+Set the VseGPT API key through an environment variable before running:
 
 ```bash
 export VSEGPT_API_KEY="..."
 python scripts/run_druglikeness_experiments.py --config configs/druglikeness_experiment.json
 ```
 
-В PowerShell:
+PowerShell:
 
 ```powershell
 $env:VSEGPT_API_KEY="..."
 python scripts/run_druglikeness_experiments.py --config configs/druglikeness_experiment.json
 ```
 
-### Анализ завершенного запуска
+### Analyze a Completed Run
 
 ```bash
 python scripts/analyze_grouped_results.py --run-dir data/analysis/<run_folder>
 ```
 
-### Запуск на всех молекулах
+### Evaluate All Molecules
 
-Чтобы оценивать все молекулы, а не сбалансированную подвыборку, в конфиге нужно
-поменять стратегию:
+To evaluate all molecules instead of a balanced subset, set the sampling
+strategy in the config:
 
 ```json
 "sample": {
@@ -63,6 +62,6 @@ python scripts/analyze_grouped_results.py --run-dir data/analysis/<run_folder>
 }
 ```
 
-Каждая папка запуска в `data/analysis/` хранит конфиг эксперимента, шаблон
-промпта, отрендеренные промпты, выборку молекул, информацию о моделях,
-подробные результаты, сводные таблицы, графики и HTML-отчеты.
+Each run folder in `data/analysis/` stores the resolved config, rendered
+prompts, sampled molecules, detailed results, summary tables, plots, and HTML
+reports.

@@ -1,8 +1,6 @@
 /data/*
-!/data/graphs/
-!/data/graphs/*.csv
+!/data/benchmark/
+!/data/benchmark/*.csv
 !/data/analysis/
 data/analysis/*
-!/data/analysis/20260514_druglikeness_v1_completed/
-!/data/analysis/20260514_druglikeness_v1_completed/**
 __pycache__/

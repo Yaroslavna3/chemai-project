@@ -1,19 +1,17 @@
 {
   "experiment_name": "druglikeness_v1",
-  "dataset_path": "data/graphs/absolute_score.csv",
+  "dataset_path": "data/benchmark/absolute_score.csv",
   "output_root": "data/analysis",
   "api_base": "https://api.vsegpt.ru/v1",
   "api_key_env": "VSEGPT_API_KEY",
-  "random_seed": 20260514,
+  "sample_random_seed": 20260514,
   "max_retries": 3,
   "request_timeout_seconds": 180,
   "llm_parameters": {
     "temperature": 0.1,
     "max_tokens": 7000,
     "system_prompt": "You are precise, conservative, and return only valid JSON.",
-    "extra_headers": {
-      "Topalova": "druglikeness_experiment"
-    }
+    "extra_headers": {}
   },
   "sample": {
     "strategy": "balanced_per_status",

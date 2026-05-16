@@ -25,18 +25,18 @@ ANALYSIS_DIR = REPO_ROOT / "data" / "analysis"
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "experiment_name": "druglikeness_v1",
-    "dataset_path": "data/graphs/absolute_score.csv",
+    "dataset_path": "data/benchmark/absolute_score.csv",
     "output_root": "data/analysis",
     "api_base": "https://api.vsegpt.ru/v1",
     "api_key_env": "VSEGPT_API_KEY",
-    "random_seed": 20260514,
+    "sample_random_seed": 20260514,
     "max_retries": 3,
     "request_timeout_seconds": 180,
     "llm_parameters": {
         "temperature": 0.1,
         "max_tokens": 7000,
         "system_prompt": "You are precise, conservative, and return only valid JSON.",
-        "extra_headers": {"Topalova": "druglikeness_experiment"},
+        "extra_headers": {},
     },
     "sample": {
         "strategy": "balanced_per_status",
@@ -155,12 +155,12 @@ def balanced_take(group: pd.DataFrame, n: int, rng: random.Random, balance_by: s
 
 
 def make_sample(df: pd.DataFrame, config: dict[str, Any]) -> pd.DataFrame:
-    rng = random.Random(config["random_seed"])
+    rng = random.Random(config.get("sample_random_seed", 20260514))
     sample_config = config["sample"]
     strategy = sample_config["strategy"]
 
     if strategy == "all":
-        sample = df.copy().sample(frac=1, random_state=config["random_seed"]).reset_index(drop=True)
+        sample = df.copy().sample(frac=1, random_state=config.get("sample_random_seed", 20260514)).reset_index(drop=True)
     elif strategy == "balanced_per_status":
         parts = []
         for status in sample_config["statuses"]:
@@ -177,15 +177,22 @@ def make_sample(df: pd.DataFrame, config: dict[str, Any]) -> pd.DataFrame:
     else:
         raise ValueError(f"Unknown sample strategy: {strategy}")
 
-    if "sample_id" in sample.columns:
-        sample = sample.drop(columns=["sample_id"])
-    sample.insert(0, "sample_id", [f"M{i + 1:04d}" for i in range(len(sample))])
+    if "molecule_id" in sample.columns:
+        sample = sample.drop(columns=["molecule_id"])
+    sample.insert(0, "molecule_id", [f"M{i + 1:04d}" for i in range(len(sample))])
     return sample
+
+
+def sample_export_columns(sample: pd.DataFrame, config: dict[str, Any]) -> list[str]:
+    preferred = ["molecule_id", "Name", "SMILES", "Status", "Status_Reason", "IUPAC"]
+    preferred.extend(config["descriptor_columns"])
+    preferred.extend(["BRENK STRUCTS", "PAINS STRUCTS", "Glaxo STRUCTS"])
+    return [column for column in preferred if column in sample.columns]
 
 
 def molecule_payload(row: pd.Series, representation: str, descriptor_columns: list[str]) -> dict[str, Any]:
     base = {
-        "sample_id": row["sample_id"],
+        "molecule_id": row["molecule_id"],
         "name": row["Name"],
     }
     if representation == "smiles":
@@ -223,7 +230,7 @@ def prompt_for_batch(
         min_score=scale["min"],
         max_score=scale["max"],
         representation=representation,
-        molecules_json=json.dumps(molecules, ensure_ascii=False),
+        molecule_batch=json.dumps(molecules, ensure_ascii=False),
     ).strip()
 
 
@@ -280,27 +287,6 @@ def call_model(
     raise RuntimeError(f"Model call failed for {model}: {last_error}")
 
 
-def fetch_model_prices(api_key: str, config: dict[str, Any]) -> pd.DataFrame:
-    data = request_json(config["api_base"], "/models", api_key)
-    by_id = {item["id"]: item for item in data.get("data", [])}
-    rows = []
-    for model in config["models"]:
-        item = by_id.get(model["model"], {})
-        pricing = item.get("pricing", {})
-        rows.append(
-            {
-                "family": model["family"],
-                "model": model["model"],
-                "label": model.get("label", model["model"]),
-                "prompt_price": pricing.get("prompt"),
-                "completion_price": pricing.get("completion"),
-                "context_length": item.get("context_length"),
-                "features": ", ".join(item.get("features", [])),
-            }
-        )
-    return pd.DataFrame(rows)
-
-
 def make_run_dir(config: dict[str, Any], run_id: str | None) -> Path:
     output_root = resolve_repo_path(config["output_root"])
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -318,9 +304,6 @@ def save_run_metadata(run_dir: Path, config_path: Path, config: dict[str, Any]):
     )
     if config_path.exists():
         shutil.copy2(config_path, run_dir / "config.input.json")
-    prompt_path = resolve_repo_path(config["prompt_template_path"])
-    if prompt_path.exists():
-        shutil.copy2(prompt_path, run_dir / "prompt_template.txt")
 
 
 def scale_label(scale: dict[str, Any]) -> str:
@@ -340,17 +323,14 @@ def run_experiments(config_path: Path = CONFIG_PATH, run_id: str | None = None, 
     sample = make_sample(df, config)
     prompt_template = load_prompt_template(config)
 
-    sample.to_csv(run_dir / "sample.csv", index=False, encoding="utf-8-sig")
+    sample_to_save = sample[sample_export_columns(sample, config)]
+    sample_to_save.to_csv(run_dir / "sample.csv", index=False, encoding="utf-8-sig")
 
     rendered_prompt_dir = run_dir / "rendered_prompts"
     rendered_prompt_dir.mkdir(exist_ok=True)
 
-    if dry_run:
-        model_prices = pd.DataFrame(config["models"])
-    else:
+    if not dry_run:
         api_key = extract_api_key(config)
-        model_prices = fetch_model_prices(api_key, config)
-    model_prices.to_csv(run_dir / "vsegpt_selected_models.csv", index=False, encoding="utf-8-sig")
 
     detail_rows = []
     experiment_rows = []
@@ -368,11 +348,11 @@ def run_experiments(config_path: Path = CONFIG_PATH, run_id: str | None = None, 
 
                 parsed, usage = call_model(api_key, model_info["model"], prompt, config)
                 results = parsed.get("results", [])
-                by_id = {str(item.get("sample_id")): item for item in results}
+                by_id = {str(item.get("molecule_id")): item for item in results}
 
                 scores = []
                 for _, row in sample.iterrows():
-                    item = by_id.get(row["sample_id"], {})
+                    item = by_id.get(row["molecule_id"], {})
                     raw_score = item.get("drug_likeness_score")
                     try:
                         score = clamp_score(float(raw_score), scale)
@@ -390,11 +370,10 @@ def run_experiments(config_path: Path = CONFIG_PATH, run_id: str | None = None, 
                             "scale": scale_label(scale),
                             "scale_min": scale["min"],
                             "scale_max": scale["max"],
-                            "sample_id": row["sample_id"],
+                            "molecule_id": row["molecule_id"],
                             "name": row["Name"],
                             "status": row["Status"],
                             "status_reason": row["Status_Reason"],
-                            "class": row["Class"],
                             "smiles": row["SMILES"],
                             "iupac": row["IUPAC"],
                             "score": score,
@@ -434,12 +413,11 @@ def run_experiments(config_path: Path = CONFIG_PATH, run_id: str | None = None, 
     summary.to_csv(run_dir / "experiment_summary.csv", index=False, encoding="utf-8-sig")
 
     with pd.ExcelWriter(run_dir / "experiment_results.xlsx", engine="xlsxwriter") as writer:
-        model_prices.to_excel(writer, sheet_name="selected_models", index=False)
-        sample.to_excel(writer, sheet_name="sample", index=False)
+        sample_to_save.to_excel(writer, sheet_name="sample", index=False)
         summary.to_excel(writer, sheet_name="summary", index=False)
         details.to_excel(writer, sheet_name="detailed", index=False)
 
-    write_html_report(run_dir, sample, model_prices, summary, details)
+    write_html_report(run_dir, sample_to_save, summary, details)
     print(f"Done: {run_dir}", flush=True)
     return run_dir
 
@@ -447,7 +425,6 @@ def run_experiments(config_path: Path = CONFIG_PATH, run_id: str | None = None, 
 def write_html_report(
     run_dir: Path,
     sample: pd.DataFrame,
-    model_prices: pd.DataFrame,
     summary: pd.DataFrame,
     details: pd.DataFrame,
 ):
@@ -468,11 +445,9 @@ def write_html_report(
         style,
         "</head><body>",
         "<h1>Drug-likeness LLM experiments</h1>",
-        "<p class='note'>Each run folder contains the config, prompt template, rendered prompts, sample, and results.</p>",
-        "<h2>Selected VseGPT models</h2>",
-        model_prices.to_html(index=False, escape=True),
+        "<p class='note'>Each run folder contains the resolved config, rendered prompts, sample, and results.</p>",
         "<h2>Sample</h2>",
-        sample[["sample_id", "Name", "Status", "Status_Reason", "Class", "SMILES", "IUPAC"]].to_html(index=False, escape=True),
+        sample.to_html(index=False, escape=True),
         "<h2>Experiment Summary</h2>",
         summary.to_html(index=False, escape=True, float_format=lambda x: f"{x:.3f}"),
         "<h2>Detailed Results</h2>",

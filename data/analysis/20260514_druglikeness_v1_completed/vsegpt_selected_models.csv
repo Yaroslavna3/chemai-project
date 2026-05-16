@@ -1,4 +1,0 @@
-﻿family,model,label,prompt_price,completion_price,context_length,features
-gpt,openai/gpt-4.1-nano,GPT-4.1 Nano,0.015,0.06,1000000,"tools, structured"
-claude,anthropic/claude-3-haiku,Claude 3 Haiku,0.0375,0.1875,200000,tools
-qwen,qwen/qwen3-14b,Qwen3 14B,0.012,0.033,41000,
