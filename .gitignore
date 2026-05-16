@@ -1,3 +1,6 @@
 /data/*
-!/data/graphs/
-!/data/graphs/*.csv
+!/data/benchmark/
+!/data/benchmark/*.csv
+!/data/analysis/
+data/analysis/*
+__pycache__/
