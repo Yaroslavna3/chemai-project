@@ -9,7 +9,7 @@ import sascorer
 DATAPATH = Path.cwd() / 'data'
 INPUT_FILE = 'smiles.csv'
 OUTPUT_FILE = 'mol_features.csv'
-GLAXO_FILE = 'glaxo_filters.csv' # default divider is ';'
+GLAXO_PATH = DATAPATH / 'glaxo_filters.csv' # default divider is ';'
 
 # Initialize BRENK and PAINS Filter Catalogs
 brenk_params = FilterCatalogParams()
@@ -32,14 +32,26 @@ def filter_mols(smiles, catalog):
 
 
 # Glaxo
-glaxo_filters = pd.read_csv(DATAPATH / GLAXO_FILE, sep=';')
-glaxo_catalog = [(row['smarts'], Chem.MolFromSmarts(row['smarts'])) for _, row in glaxo_filters.iterrows()]
+if GLAXO_PATH.exists():
+    try:
+        glaxo_filters = pd.read_csv(GLAXO_PATH, sep=';')
+        glaxo_catalog = [(row['smarts'], Chem.MolFromSmarts(row['smarts'])) for _, row in glaxo_filters.iterrows()]
+        print(f"Glaxo filters loaded from {GLAXO_PATH}")
+    except Exception as e:
+        print(f"Error loading Glaxo filters: {e}")
+        glaxo_catalog = None
+else:
+    glaxo_catalog = None
+    print(f"Glaxo filters file not found: {GLAXO_PATH}. Skipping Glaxo filter.")
 
 
 def calc_glaxo(smiles, catalog):
+    if catalog is None:
+        return None, [] # Skip Glaxo filter
+    
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
-        return False, []
+        return None, []
     found_structs = []
     for smarts_str, pattern in catalog:
         if pattern and mol.HasSubstructMatch(pattern):
@@ -52,6 +64,8 @@ def calc_glaxo(smiles, catalog):
 def process_smiles(brenk_catalog, pains_catalog, glaxo_catalog):
     df = pd.read_csv(DATAPATH / INPUT_FILE)
     results = []
+
+    use_glaxo = glaxo_catalog is not None
 
     for smiles in df['smiles']:
         mol = Chem.MolFromSmiles(smiles)
@@ -72,7 +86,8 @@ def process_smiles(brenk_catalog, pains_catalog, glaxo_catalog):
             # Filters
             brenk_alert, brenk_matches = filter_mols(smiles, brenk_catalog)
             pains_alert, pains_matches = filter_mols(smiles, pains_catalog)
-            glaxo_alert, glaxo_matches = calc_glaxo(smiles, glaxo_catalog)
+            if use_glaxo:
+                glaxo_alert, glaxo_matches = calc_glaxo(smiles, glaxo_catalog)
 
             res = {
                 'smiles': smiles,
@@ -83,12 +98,15 @@ def process_smiles(brenk_catalog, pains_catalog, glaxo_catalog):
                 'Lipinski': violations <= 1,
                 'BRENK': brenk_alert,
                 'PAINS': pains_alert,
-                'Glaxo': glaxo_alert,
                 'Lipinski_violations_0': violations == 0,
                 'BRENK_matches': ", ".join(brenk_matches) if brenk_matches != [] else "",
                 'PAINS_matches': ", ".join(pains_matches) if pains_matches != [] else "",
-                'Glaxo_matches': ", ".join(glaxo_matches) if glaxo_matches != [] else "",
             }
+
+            if use_glaxo:
+                res['Glaxo'] = glaxo_alert
+                res['Glaxo_matches'] = ", ".join(glaxo_matches) if glaxo_matches != [] else ""
+            
             results.append(res)
         else:
             results.append({'smiles': smiles, 'error': 'Invalid SMILES'})
