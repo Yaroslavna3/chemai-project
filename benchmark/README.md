@@ -8,6 +8,13 @@ conda env create -f environment.yml
 ```shell
 conda activate llm_judge
 ```
+3. Download `sascorer.py` and `fpscores.pkl.gz` from [rdkit github repository](https://github.com/rdkit/rdkit/tree/master/Contrib/SA_Score) directly in this folder (chemai-project/benchmark). Or you can do it via wget
+```shell
+!wget https://raw.githubusercontent.com/rdkit/rdkit/master/Contrib/SA_Score/sascorer.py
+```
+```shell
+!wget https://raw.githubusercontent.com/rdkit/rdkit/master/Contrib/SA_Score/fpscores.pkl.gz
+```
 
 ## Usage
 
