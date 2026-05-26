@@ -96,10 +96,10 @@ def process_smiles(brenk_catalog, pains_catalog, glaxo_catalog):
                 'MW': round(mw, 2),
                 'LogP': round(logp, 2),
                 'Lipinski': violations <= 1,
-                'BRENK': brenk_alert,
-                'PAINS': pains_alert,
                 'Lipinski_violations_0': violations == 0,
+                'BRENK': brenk_alert,
                 'BRENK_matches': ", ".join(brenk_matches) if brenk_matches != [] else "",
+                'PAINS': pains_alert,
                 'PAINS_matches': ", ".join(pains_matches) if pains_matches != [] else "",
             }
 
