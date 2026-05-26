@@ -5,6 +5,9 @@ import time
 from tqdm.auto import tqdm
 from pathlib import Path
 
+DATAPATH = Path.cwd() / 'data'
+OUTPUT_FILE = 'molecules_by_id.csv'
+
 
 def scrape_molecules_by_id(start_id, end_id):
     base_url = "https://www.vidal.ru/drugs/molecule/"
@@ -40,14 +43,13 @@ def scrape_molecules_by_id(start_id, end_id):
         except Exception as e:
             print(f"\nError fetching ID {i}: {e}")
 
-    datapath = Path.cwd() / 'data'
     # Save results to CSV
-    with open(datapath / 'molecules_by_id.csv', 'w', newline='', encoding='utf-8') as f:
+    with open(DATAPATH / OUTPUT_FILE, 'w', newline='', encoding='utf-8') as f:
         writer = csv.DictWriter(f, fieldnames=['id', 'latin_name'])
         writer.writeheader()
         writer.writerows(results)
 
-    print(f"\nSaved {len(results)} molecules to data/molecules_by_id.csv")
+    print(f"\nSaved {len(results)} molecules to {DATAPATH / OUTPUT_FILE}")
 
 # Scrape the full range
 scrape_molecules_by_id(1, 4000)

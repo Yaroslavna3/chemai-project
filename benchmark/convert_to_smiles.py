@@ -6,6 +6,13 @@ import time
 from tqdm.auto import tqdm
 from pathlib import Path
 
+# Configuration
+DATAPATH = Path.cwd() / 'data'
+INPUT_FILE = 'molecules_by_id.csv'
+OUTPUT_FILE = 'smiles.csv'
+MAX_HEAVY_ATOMS = 50  # Adjust this threshold to filter polymers/large molecules
+MAX_MW = 900          # Molecular Weight threshold
+
 
 def get_smiles_from_pubchem(molecule_name):
     try:
@@ -29,15 +36,8 @@ def get_heavy_atom_count(mol):
     return 0
 
 
-# Configuration
-datapath = Path.cwd() / 'data'
-input_file = datapath / 'molecules_by_id.csv'
-output_file = datapath / 'molecules_filtered.csv'
-MAX_HEAVY_ATOMS = 50  # Adjust this threshold to filter polymers/large molecules
-MAX_MW = 900          # Molecular Weight threshold
-
 try:
-    df_input = pd.read_csv(input_file)
+    df_input = pd.read_csv(DATAPATH / INPUT_FILE)
     results = []
 
     for index, row in tqdm(df_input.iterrows(), total=df_input.shape[0], desc="Filtering molecules"):
@@ -61,7 +61,7 @@ try:
         time.sleep(0.2)  # Rate limiting
 
     result_df = pd.DataFrame(results)
-    result_df.to_csv(output_file, index=False)
+    result_df.to_csv(DATAPATH / OUTPUT_FILE, index=False)
     print(f"\nProcessed {len(df_input)} molecules. Kept {len(result_df)} after filtering.")
     print(result_df.head())
 

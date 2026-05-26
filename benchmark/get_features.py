@@ -5,11 +5,13 @@ from rdkit.Chem import Descriptors, FilterCatalog, Lipinski, QED
 from rdkit.Chem.FilterCatalog import FilterCatalogParams
 import sascorer
 
-INPUT_FILE = 'molecules_filtered.csv'
-OUTPUT_FILE = 'mol_features.csv'
+# Configuration
 DATAPATH = Path.cwd() / 'data'
+INPUT_FILE = 'smiles.csv'
+OUTPUT_FILE = 'mol_features.csv'
+GLAXO_FILE = 'glaxo_filters.csv' # default divider is ';'
 
-# Initialize Filter Catalogs
+# Initialize BRENK and PAINS Filter Catalogs
 brenk_params = FilterCatalogParams()
 brenk_params.AddCatalog(FilterCatalogParams.FilterCatalogs.BRENK)
 BRENK_catalog = FilterCatalog.FilterCatalog(brenk_params)
@@ -30,7 +32,7 @@ def filter_mols(smiles, catalog):
 
 
 # Glaxo
-glaxo_filters = pd.read_csv(DATAPATH / 'glaxo_filters.csv', sep=';')
+glaxo_filters = pd.read_csv(DATAPATH / GLAXO_FILE, sep=';')
 glaxo_catalog = [(row['smarts'], Chem.MolFromSmarts(row['smarts'])) for _, row in glaxo_filters.iterrows()]
 
 
@@ -47,8 +49,8 @@ def calc_glaxo(smiles, catalog):
     return False, found_structs
 
 
-def process_smiles(input_file, output_file, brenk_catalog, pains_catalog, glaxo_catalog):
-    df = pd.read_csv(DATAPATH / input_file)
+def process_smiles(brenk_catalog, pains_catalog, glaxo_catalog):
+    df = pd.read_csv(DATAPATH / INPUT_FILE)
     results = []
 
     for smiles in df['smiles']:
@@ -92,11 +94,11 @@ def process_smiles(input_file, output_file, brenk_catalog, pains_catalog, glaxo_
             results.append({'smiles': smiles, 'error': 'Invalid SMILES'})
 
     output_df = pd.DataFrame(results)
-    output_df.to_csv(DATAPATH / output_file, index=False)
+    output_df.to_csv(DATAPATH / OUTPUT_FILE, index=False)
 
     print(output_df.head())
-    print(f'Results saved to {output_file}')
+    print(f'Results saved to {DATAPATH / OUTPUT_FILE}')
 
 
 # To run this, ensure input file is uploaded
-process_smiles(INPUT_FILE, OUTPUT_FILE, BRENK_catalog, PAINS_catalog, glaxo_catalog)
+process_smiles(BRENK_catalog, PAINS_catalog, glaxo_catalog)
