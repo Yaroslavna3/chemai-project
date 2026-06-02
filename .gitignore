@@ -1,3 +1,6 @@
-data/*
 .vscode
 __pycache__
+data/*
+!data/glaxo_filters.csv
+!data/graphs/
+!data/graphs/*.csv

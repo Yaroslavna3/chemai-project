@@ -18,7 +18,7 @@ conda activate llm_judge
 
 ## Usage
 
-1. To scratch latin compounds name from `www.vidal.ru` use `scratching.py`
+1. Example of scratching latin compounds name is `scratching.py`
 ```shell
 python scratching.py
 ```
