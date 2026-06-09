@@ -6,7 +6,7 @@ from tqdm.auto import tqdm
 from pathlib import Path
 
 DATAPATH = Path.cwd() / 'data'
-OUTPUT_FILE = 'molecules_by_id.csv'
+OUTPUT_FILE = 'molecules_by_latin.csv'
 URL = "your_URL"
 
 
