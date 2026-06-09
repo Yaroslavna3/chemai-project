@@ -1,5 +1,6 @@
 import pandas as pd
 from pathlib import Path
+from RAscore import RAscore_XGB
 from rdkit import Chem
 from rdkit.Chem import Descriptors, FilterCatalog, Lipinski, QED
 from rdkit.Chem.FilterCatalog import FilterCatalogParams
@@ -9,7 +10,7 @@ import sascorer
 DATAPATH = Path.cwd() / 'data'
 INPUT_FILE = 'smiles.csv'
 OUTPUT_FILE = 'mol_features.csv'
-GLAXO_PATH = DATAPATH / 'glaxo_filters.csv' # default divider is ';'
+GLAXO_PATH = DATAPATH / 'glaxo_filters.csv' # divider is ';'
 
 # Initialize BRENK and PAINS Filter Catalogs
 brenk_params = FilterCatalogParams()
@@ -67,7 +68,8 @@ def process_smiles(brenk_catalog, pains_catalog, glaxo_catalog):
 
     use_glaxo = glaxo_catalog is not None
 
-    for smiles in df['smiles']:
+    for _, row in df.iterrows():
+        smiles = row['smiles']
         mol = Chem.MolFromSmiles(smiles)
         if mol:
             # Descriptors
@@ -75,6 +77,7 @@ def process_smiles(brenk_catalog, pains_catalog, glaxo_catalog):
             logp = Descriptors.MolLogP(mol)
             hbd = Lipinski.NumHDonors(mol)
             hba = Lipinski.NumHAcceptors(mol)
+            xgb_scorer = RAscore_XGB.RAScorerXGB()
 
             # Lipinski
             violations = 0
@@ -90,11 +93,15 @@ def process_smiles(brenk_catalog, pains_catalog, glaxo_catalog):
                 glaxo_alert, glaxo_matches = calc_glaxo(smiles, glaxo_catalog)
 
             res = {
+                'latin_name': row['latin_name'],
                 'smiles': smiles,
+                'non_canonical_smiles': row['non_canonical_smiles'],
+                'iupac': row['iupac'],
                 'QED': round(QED.qed(mol), 2),
                 'SA': round(sascorer.calculateScore(mol), 2),
                 'MW': round(mw, 2),
                 'LogP': round(logp, 2),
+                'RAscore': xgb_scorer.predict(smiles),
                 'Lipinski': violations <= 1,
                 'Lipinski_violations_0': violations == 0,
                 'BRENK': brenk_alert,

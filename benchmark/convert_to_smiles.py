@@ -8,7 +8,7 @@ from pathlib import Path
 
 # Configuration
 DATAPATH = Path.cwd() / 'data'
-INPUT_FILE = 'molecules_by_id.csv'
+INPUT_FILE = 'molecules_by_latin.csv'
 OUTPUT_FILE = 'smiles.csv'
 MAX_HEAVY_ATOMS = 50  # Adjust this threshold to filter polymers/large molecules
 MAX_MW = 900          # Molecular Weight threshold
@@ -22,11 +22,21 @@ def get_smiles_from_pubchem(molecule_name):
         if compounds:
             # If compounds are found, return the canonical SMILES of the first one.
             return compounds[0].connectivity_smiles
-        else:
-            return None
+        return None
     except Exception as e:
         print(f"An error occurred while querying PubChem for '{molecule_name}': {e}")
         return None
+
+
+def get_iupac(smiles):
+    try:
+        # Look up compound by SMILES
+        compounds = pcp.get_compounds(smiles, namespace='smiles')
+        if compounds:
+            return compounds[0].iupac_name
+        return "N/F"
+    except Exception as e:
+        return f"Error: {e}"
 
 
 def get_heavy_atom_count(mol):
@@ -40,7 +50,7 @@ try:
     df_input = pd.read_csv(DATAPATH / INPUT_FILE)
     results = []
 
-    for index, row in tqdm(df_input.iterrows(), total=df_input.shape[0], desc="Filtering molecules"):
+    for _, row in tqdm(df_input.iterrows(), total=df_input.shape[0], desc="Filtering molecules"):
         name = row['latin_name']
         pubchem_smiles = get_smiles_from_pubchem(name)
 
@@ -55,7 +65,8 @@ try:
                     results.append({
                         'latin_name': name,
                         'smiles': Chem.MolToSmiles(mol, canonical=True),
-                        'non_canonical_smiles': Chem.MolToSmiles(mol, canonical=False, doRandom=True)
+                        'non_canonical_smiles': Chem.MolToSmiles(mol, canonical=False, doRandom=True),
+                        'iupac': get_iupac(pubchem_smiles)
                     })
 
         time.sleep(0.2)  # Rate limiting
