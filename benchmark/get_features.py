@@ -97,22 +97,22 @@ def process_smiles(brenk_catalog, pains_catalog, glaxo_catalog):
                 'smiles': smiles,
                 'non_canonical_smiles': row['non_canonical_smiles'],
                 'iupac': row['iupac'],
-                'QED': round(QED.qed(mol), 2),
-                'SA': round(sascorer.calculateScore(mol), 2),
-                'MW': round(mw, 2),
-                'LogP': round(logp, 2),
-                'RAscore': xgb_scorer.predict(smiles),
-                'Lipinski': violations <= 1,
-                'Lipinski_violations_0': violations == 0,
-                'BRENK': brenk_alert,
-                'BRENK_matches': ", ".join(brenk_matches) if brenk_matches != [] else "",
-                'PAINS': pains_alert,
-                'PAINS_matches': ", ".join(pains_matches) if pains_matches != [] else "",
+                'qed': round(QED.qed(mol), 2),
+                'sa': round(sascorer.calculateScore(mol), 2),
+                'mw': round(mw, 2),
+                'logp': round(logp, 2),
+                'rascore': xgb_scorer.predict(smiles),
+                'lipinski': violations <= 1,
+                'lipinski_violations_0': violations == 0,
+                'brenk': brenk_alert,
+                'brenk_matches': ", ".join(brenk_matches) if brenk_matches != [] else "",
+                'pains': pains_alert,
+                'pains_matches': ", ".join(pains_matches) if pains_matches != [] else "",
             }
 
             if use_glaxo:
-                res['Glaxo'] = glaxo_alert
-                res['Glaxo_matches'] = ", ".join(glaxo_matches) if glaxo_matches != [] else ""
+                res['glaxo'] = glaxo_alert
+                res['glaxo_matches'] = ", ".join(glaxo_matches) if glaxo_matches != [] else ""
             
             results.append(res)
         else:

@@ -10,7 +10,8 @@ from pathlib import Path
 DATAPATH = Path.cwd() / 'data'
 INPUT_FILE = 'molecules_by_latin.csv'
 OUTPUT_FILE = 'smiles.csv'
-MAX_HEAVY_ATOMS = 50  # Adjust this threshold to filter polymers/large molecules
+ADJUST_FILTERS = False
+MAX_HEAVY_ATOMS = 50  # Filter polymers/large molecules
 MAX_MW = 900          # Molecular Weight threshold
 
 
@@ -22,7 +23,9 @@ def get_smiles_from_pubchem(molecule_name):
         if compounds:
             # If compounds are found, return the canonical SMILES of the first one.
             return compounds[0].connectivity_smiles
-        return None
+        else:
+            print(f"No compounds found for '{molecule_name}'")
+            return None
     except Exception as e:
         print(f"An error occurred while querying PubChem for '{molecule_name}': {e}")
         return None
@@ -60,20 +63,24 @@ try:
                 mw = Descriptors.MolWt(mol)
                 heavy_atoms = get_heavy_atom_count(mol)
 
-                # Filter logic: Must be under MW limit AND Heavy Atom limit
-                if mw < MAX_MW and heavy_atoms < MAX_HEAVY_ATOMS:
-                    results.append({
-                        'latin_name': name,
-                        'smiles': Chem.MolToSmiles(mol, canonical=True),
-                        'non_canonical_smiles': Chem.MolToSmiles(mol, canonical=False, doRandom=True),
-                        'iupac': get_iupac(pubchem_smiles)
-                    })
+                # Must be under MW limit AND Heavy Atom limit
+                if ADJUST_FILTERS:
+                    if mw >= MAX_MW or heavy_atoms >= MAX_HEAVY_ATOMS:
+                        time.sleep(0.2)
+                        continue
+
+                results.append({
+                    'latin_name': name,
+                    'smiles': Chem.MolToSmiles(mol, canonical=True),
+                    'non_canonical_smiles': Chem.MolToSmiles(mol, canonical=False, doRandom=True),
+                    'iupac': get_iupac(pubchem_smiles)
+                })
 
         time.sleep(0.2)  # Rate limiting
 
     result_df = pd.DataFrame(results)
     result_df.to_csv(DATAPATH / OUTPUT_FILE, index=False)
-    print(f"\nProcessed {len(df_input)} molecules. Kept {len(result_df)} after filtering.")
+    print(f"\nProcessed {len(df_input)} molecules. Kept {len(result_df)} after filtering. Saved at {DATAPATH / OUTPUT_FILE}")
     print(result_df.head())
 
 except Exception as e:
