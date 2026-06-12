@@ -12,7 +12,7 @@ liabilities, and potential risks.
 Drug-likeness LLM experiments are configured through:
 
 - `configs/druglikeness_experiment.json` for models, score ranges, molecule
-  representations, sampling strategy, and VseGPT parameters;
+  representations, sampling strategy, and API environment variable names;
 - `configs/druglikeness_prompt_template.txt` for the LLM prompt template.
 
 Python entrypoints are stored in `scripts/`:
@@ -20,7 +20,7 @@ Python entrypoints are stored in `scripts/`:
 - `scripts/run_druglikeness_experiments.py` runs configured experiments;
 - `scripts/analyze_grouped_results.py` aggregates results and builds plots.
 
-### Dry Run Without VseGPT Calls
+### Dry Run Without API Calls
 
 This creates a run folder, molecule sample, and rendered prompts without calling
 an LLM:
@@ -31,17 +31,24 @@ python scripts/run_druglikeness_experiments.py --dry-run
 
 ### Full Experiment Run
 
-Set the VseGPT API key through an environment variable before running:
+Create a local `.env` file with the API base URL and API key before running:
 
-```bash
-export VSEGPT_API_KEY="..."
-python scripts/run_druglikeness_experiments.py --config configs/druglikeness_experiment.json
+```dotenv
+API_BASE=https://example.com/v1
+API_KEY=...
 ```
 
-PowerShell:
+The `.env` file is ignored by Git and should not be committed. The config keeps
+only the environment variable names:
 
-```powershell
-$env:VSEGPT_API_KEY="..."
+```json
+"api_base": "API_BASE",
+"api_key_env": "API_KEY"
+```
+
+Run the experiment:
+
+```bash
 python scripts/run_druglikeness_experiments.py --config configs/druglikeness_experiment.json
 ```
 

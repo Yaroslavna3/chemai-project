@@ -22,13 +22,14 @@ CONFIG_PATH = REPO_ROOT / "configs" / "druglikeness_experiment.json"
 PROMPT_TEMPLATE_PATH = REPO_ROOT / "configs" / "druglikeness_prompt_template.txt"
 DATA_PATH = REPO_ROOT / "data" / "graphs" / "absolute_score.csv"
 ANALYSIS_DIR = REPO_ROOT / "data" / "analysis"
+ENV_PATH = REPO_ROOT / ".env"
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "experiment_name": "druglikeness_v1",
     "dataset_path": "data/benchmark/absolute_score.csv",
     "output_root": "data/analysis",
-    "api_base": "https://api.vsegpt.ru/v1",
-    "api_key_env": "VSEGPT_API_KEY",
+    "api_base": "API_BASE",
+    "api_key_env": "API_KEY",
     "sample_random_seed": 20260514,
     "max_retries": 3,
     "request_timeout_seconds": 180,
@@ -59,6 +60,19 @@ DEFAULT_CONFIG: dict[str, Any] = {
 }
 
 
+def load_env_file(path: Path = ENV_PATH):
+    if not path.exists():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, value = stripped.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        os.environ.setdefault(key, value)
+
+
 def resolve_repo_path(path_value: str | Path) -> Path:
     path = Path(path_value)
     return path if path.is_absolute() else REPO_ROOT / path
@@ -75,6 +89,7 @@ def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]
 
 
 def load_config(config_path: Path) -> dict[str, Any]:
+    load_env_file()
     if config_path.exists():
         with config_path.open("r", encoding="utf-8") as fh:
             user_config = json.load(fh)
@@ -84,8 +99,17 @@ def load_config(config_path: Path) -> dict[str, Any]:
     return config
 
 
+def resolve_env_value(value: str, field_name: str) -> str:
+    if value.startswith("http://") or value.startswith("https://"):
+        return value
+    env_value = os.getenv(value)
+    if env_value:
+        return env_value
+    raise RuntimeError(f"Set {value} in .env or the environment for {field_name}.")
+
+
 def extract_api_key(config: dict[str, Any]) -> str:
-    env_name = config.get("api_key_env", "VSEGPT_API_KEY")
+    env_name = config.get("api_key_env", "API_KEY")
     api_key = os.getenv(env_name)
     if api_key:
         return api_key
@@ -330,6 +354,7 @@ def run_experiments(config_path: Path = CONFIG_PATH, run_id: str | None = None, 
     rendered_prompt_dir.mkdir(exist_ok=True)
 
     if not dry_run:
+        config["api_base"] = resolve_env_value(str(config["api_base"]), "api_base")
         api_key = extract_api_key(config)
 
     detail_rows = []
@@ -458,7 +483,7 @@ def write_html_report(
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run config-driven VseGPT drug-likeness experiments.")
+    parser = argparse.ArgumentParser(description="Run config-driven drug-likeness LLM experiments.")
     parser.add_argument("--config", type=Path, default=CONFIG_PATH, help="Path to experiment JSON config.")
     parser.add_argument("--run-id", default=None, help="Optional output folder name under output_root.")
     parser.add_argument("--dry-run", action="store_true", help="Create run folder, sample, and rendered prompts without API calls.")
@@ -467,4 +492,4 @@ def parse_args() -> argparse.Namespace:
 
 if __name__ == "__main__":
     args = parse_args()
-    run_experiments(config_path=args.config, run_id=args.run_id, dry_run=args.dry_run)
+    run_experiments(config_path=args.config, run_id=getattr(args, "run_id"), dry_run=getattr(args, "dry_run"))

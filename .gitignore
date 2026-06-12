@@ -4,3 +4,4 @@
 !/data/analysis/
 data/analysis/*
 __pycache__/
+.env
