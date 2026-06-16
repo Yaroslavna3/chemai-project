@@ -9,7 +9,6 @@ Scoring:
 - Return `drug_likeness_score` on a {min_score}-{max_score} scale.
 - Higher is better: {max_score} means very drug-like/promising; {min_score} means unsuitable or strongly problematic.
 - Use the full range and avoid assigning most molecules to the middle of the scale.
-- Judge the molecules by general medicinal chemistry criteria, not by any dataset labels or expected classes.
 
 Comment:
 - Add a concise English comment for every molecule.
