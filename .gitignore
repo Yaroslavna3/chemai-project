@@ -4,8 +4,8 @@ data/*
 !data/glaxo_filters.csv
 !data/graphs/
 !data/graphs/*.csv
-!/data/benchmark/
-!/data/benchmark/*.csv
-!/data/analysis/
+!data/benchmark/
+!data/benchmark/*.csv
+!data/analysis/
 data/analysis/*
 .env
