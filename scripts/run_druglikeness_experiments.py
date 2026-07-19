@@ -20,13 +20,12 @@ import pandas as pd
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = REPO_ROOT / "configs" / "druglikeness_experiment.json"
 PROMPT_TEMPLATE_PATH = REPO_ROOT / "configs" / "druglikeness_prompt_template.txt"
-DATA_PATH = REPO_ROOT / "data" / "graphs" / "absolute_score.csv"
 ANALYSIS_DIR = REPO_ROOT / "data" / "analysis"
 ENV_PATH = REPO_ROOT / ".env"
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "experiment_name": "druglikeness_v1",
-    "dataset_path": "data/benchmark/absolute_score.csv",
+    "dataset_path": "data/benchmark/absolute_scoring.csv",
     "output_root": "data/analysis",
     "api_base": "API_BASE",
     "api_key_env": "API_KEY",
@@ -43,20 +42,25 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "strategy": "balanced_per_status",
         "statuses": ["bad", "good", "ambiguous"],
         "per_status": 10,
-        "balance_by": "Status_Reason",
+        "balance_by": "STATUS_REASON",
     },
-    "descriptor_columns": ["QED", "SA", "MW", "logP", "Lipinski", "BRENK", "PAINS", "Glaxo"],
+    "descriptor_columns": ["QED", "SA", "MW", "LOGP", "LIPINSKI", "BRENK", "PAINS", "GLAXO"],
     "models": [
         {"family": "gpt", "model": "openai/gpt-4.1-nano", "label": "GPT-4.1 Nano"},
         {"family": "claude", "model": "anthropic/claude-3-haiku", "label": "Claude 3 Haiku"},
         {"family": "qwen", "model": "qwen/qwen3-14b", "label": "Qwen3 14B"},
     ],
-    "representations": ["smiles", "iupac", "smiles_descriptors"],
-    "scales": [
-        {"id": "0_1", "label": "0-1", "min": 0, "max": 1},
-        {"id": "0_10", "label": "0-10", "min": 0, "max": 10},
-    ],
+    "representations": ["smiles", "iupac"],
+    "scales": [{"id": "0_1", "label": "0-1", "min": 0, "max": 1}],
     "prompt_template_path": "configs/druglikeness_prompt_template.txt",
+}
+
+COLUMN_CANDIDATES = {
+    "name": ["NAME", "Name", "LATIN NAME", "Latin Name"],
+    "smiles": ["SMILES", "smiles"],
+    "iupac": ["IUPAC", "iupac"],
+    "status": ["STATUS", "Status", "status"],
+    "status_reason": ["STATUS_REASON", "Status_Reason", "status_reason"],
 }
 
 
@@ -122,11 +126,14 @@ def request_json(
     api_key: str,
     payload: dict[str, Any] | None = None,
     timeout: int = 120,
+    extra_headers: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     body = None if payload is None else json.dumps(payload).encode("utf-8")
     headers = {"Authorization": f"Bearer {api_key}"}
     if payload is not None:
         headers["Content-Type"] = "application/json"
+    if extra_headers:
+        headers.update(extra_headers)
     req = urllib.request.Request(api_base.rstrip("/") + path, data=body, headers=headers)
     with urllib.request.urlopen(req, timeout=timeout) as response:
         return json.loads(response.read().decode("utf-8"))
@@ -142,6 +149,26 @@ def normalize_decimal(value):
         if "," in stripped and re.fullmatch(r"-?\d+,\d+", stripped):
             return float(stripped.replace(",", "."))
     return value
+
+
+def find_column(df: pd.DataFrame, logical_name: str, required: bool = True) -> str | None:
+    candidates = COLUMN_CANDIDATES.get(logical_name, [logical_name])
+    for column in candidates:
+        if column in df.columns:
+            return column
+    if required:
+        raise KeyError(f"Required column not found for {logical_name}: tried {candidates}")
+    return None
+
+
+def row_value(row: pd.Series, logical_name: str, default: Any = "") -> Any:
+    candidates = COLUMN_CANDIDATES.get(logical_name, [logical_name])
+    for column in candidates:
+        if column in row.index:
+            value = row[column]
+            if not pd.isna(value):
+                return value
+    return default
 
 
 def load_dataset(config: dict[str, Any]) -> pd.DataFrame:
@@ -182,19 +209,20 @@ def make_sample(df: pd.DataFrame, config: dict[str, Any]) -> pd.DataFrame:
     rng = random.Random(config.get("sample_random_seed", 20260514))
     sample_config = config["sample"]
     strategy = sample_config["strategy"]
+    status_column = find_column(df, "status")
 
     if strategy == "all":
         sample = df.copy().sample(frac=1, random_state=config.get("sample_random_seed", 20260514)).reset_index(drop=True)
     elif strategy == "balanced_per_status":
         parts = []
         for status in sample_config["statuses"]:
-            status_group = df[df["Status"] == status]
+            status_group = df[df[status_column].astype(str).str.lower() == str(status).lower()]
             parts.append(
                 balanced_take(
                     status_group,
                     int(sample_config["per_status"]),
                     rng,
-                    sample_config.get("balance_by", "Status_Reason"),
+                    sample_config.get("balance_by", "STATUS_REASON"),
                 )
             )
         sample = pd.concat(parts, ignore_index=True)
@@ -208,21 +236,31 @@ def make_sample(df: pd.DataFrame, config: dict[str, Any]) -> pd.DataFrame:
 
 
 def sample_export_columns(sample: pd.DataFrame, config: dict[str, Any]) -> list[str]:
-    preferred = ["molecule_id", "Name", "SMILES", "Status", "Status_Reason", "IUPAC"]
+    preferred = [
+        "molecule_id",
+        "NAME",
+        "Name",
+        "SMILES",
+        "STATUS",
+        "Status",
+        "STATUS_REASON",
+        "Status_Reason",
+        "IUPAC",
+    ]
     preferred.extend(config["descriptor_columns"])
-    preferred.extend(["BRENK STRUCTS", "PAINS STRUCTS", "Glaxo STRUCTS"])
+    preferred.extend(["BRENK STRUCTS", "PAINS STRUCTS", "GLAXO STRUCTS", "Glaxo STRUCTS"])
     return [column for column in preferred if column in sample.columns]
 
 
 def molecule_payload(row: pd.Series, representation: str, descriptor_columns: list[str]) -> dict[str, Any]:
     base = {
         "molecule_id": row["molecule_id"],
-        "name": row["Name"],
+        "name": row_value(row, "name"),
     }
     if representation == "smiles":
-        base["smiles"] = row["SMILES"]
+        base["smiles"] = row_value(row, "smiles")
     elif representation == "iupac":
-        base["iupac"] = row["IUPAC"]
+        base["iupac"] = row_value(row, "iupac")
     elif representation == "smiles_descriptors":
         base["smiles"] = row["SMILES"]
         base["descriptors"] = {col: row[col] for col in descriptor_columns if col in row}
@@ -291,7 +329,6 @@ def call_model(
         ],
         "temperature": llm_params["temperature"],
         "max_tokens": llm_params["max_tokens"],
-        "extra_headers": llm_params.get("extra_headers", {}),
     }
     last_error = None
     for attempt in range(1, int(config["max_retries"]) + 1):
@@ -302,6 +339,7 @@ def call_model(
                 api_key,
                 payload,
                 timeout=int(config["request_timeout_seconds"]),
+                extra_headers=llm_params.get("extra_headers", {}),
             )
             content = raw["choices"][0]["message"]["content"]
             return parse_llm_json(content), raw.get("usage", {})
@@ -396,11 +434,11 @@ def run_experiments(config_path: Path = CONFIG_PATH, run_id: str | None = None, 
                             "scale_min": scale["min"],
                             "scale_max": scale["max"],
                             "molecule_id": row["molecule_id"],
-                            "name": row["Name"],
-                            "status": row["Status"],
-                            "status_reason": row["Status_Reason"],
-                            "smiles": row["SMILES"],
-                            "iupac": row["IUPAC"],
+                            "name": row_value(row, "name"),
+                            "status": row_value(row, "status"),
+                            "status_reason": row_value(row, "status_reason"),
+                            "smiles": row_value(row, "smiles"),
+                            "iupac": row_value(row, "iupac"),
                             "score": score,
                             "comment": item.get("comment", ""),
                         }

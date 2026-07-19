@@ -18,7 +18,9 @@ Drug-likeness LLM experiments are configured through:
 Python entrypoints are stored in `scripts/`:
 
 - `scripts/run_druglikeness_experiments.py` runs configured experiments;
-- `scripts/analyze_grouped_results.py` aggregates results and builds plots.
+- `scripts/analysis/analyze_llm_results.py` analyzes completed LLM result
+  tables for the absolute scoring, pair SMILES, and pair structure benchmark
+  subsets.
 
 ### Dry Run Without API Calls
 
@@ -55,8 +57,11 @@ python scripts/run_druglikeness_experiments.py --config configs/druglikeness_exp
 ### Analyze a Completed Run
 
 ```bash
-python scripts/analyze_grouped_results.py --run-dir data/analysis/<run_folder>
+python scripts/analysis/analyze_llm_results.py absolute --input data/analysis/<run_folder>/results_detailed.csv
 ```
+
+For pairwise benchmark outputs, use `pair-smiles` or `pair-structure` instead
+of `absolute`.
 
 ### Evaluate All Molecules
 

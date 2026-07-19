@@ -1,6 +1,6 @@
 {
   "experiment_name": "druglikeness_v1",
-  "dataset_path": "data/benchmark/absolute_score.csv",
+  "dataset_path": "data/benchmark/absolute_scoring.csv",
   "output_root": "data/analysis",
   "api_base": "API_BASE",
   "api_key_env": "API_KEY",
@@ -17,9 +17,9 @@
     "strategy": "balanced_per_status",
     "statuses": ["bad", "good", "ambiguous"],
     "per_status": 10,
-    "balance_by": "Status_Reason"
+    "balance_by": "STATUS_REASON"
   },
-  "descriptor_columns": ["QED", "SA", "MW", "logP", "Lipinski", "BRENK", "PAINS", "Glaxo"],
+  "descriptor_columns": ["QED", "SA", "MW", "LOGP", "LIPINSKI", "BRENK", "PAINS", "GLAXO"],
   "models": [
     {
       "family": "gpt",
@@ -37,19 +37,13 @@
       "label": "Qwen3 14B"
     }
   ],
-  "representations": ["smiles", "iupac", "smiles_descriptors"],
+  "representations": ["smiles", "iupac"],
   "scales": [
     {
       "id": "0_1",
       "label": "0-1",
       "min": 0,
       "max": 1
-    },
-    {
-      "id": "0_10",
-      "label": "0-10",
-      "min": 0,
-      "max": 10
     }
   ],
   "prompt_template_path": "configs/druglikeness_prompt_template.txt"
