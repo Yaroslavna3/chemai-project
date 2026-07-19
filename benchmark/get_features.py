@@ -1,28 +1,27 @@
-import pandas as pd
+import argparse
 from pathlib import Path
+from typing import Any, List, Optional, Tuple
+
+import pandas as pd
+import sascorer
 from RAscore import RAscore_XGB
 from rdkit import Chem
 from rdkit.Chem import Descriptors, FilterCatalog, Lipinski, QED
 from rdkit.Chem.FilterCatalog import FilterCatalogParams
-import sascorer
-
-# Configuration
-DATAPATH = Path.cwd() / 'data'
-INPUT_FILE = 'smiles.csv'
-OUTPUT_FILE = 'mol_features.csv'
-GLAXO_PATH = DATAPATH / 'glaxo_filters.csv' # divider is ';'
-
-# Initialize BRENK and PAINS Filter Catalogs
-brenk_params = FilterCatalogParams()
-brenk_params.AddCatalog(FilterCatalogParams.FilterCatalogs.BRENK)
-BRENK_catalog = FilterCatalog.FilterCatalog(brenk_params)
-
-pains_params = FilterCatalogParams()
-pains_params.AddCatalog(FilterCatalogParams.FilterCatalogs.PAINS)
-PAINS_catalog = FilterCatalog.FilterCatalog(pains_params)
 
 
-def filter_mols(smiles, catalog):
+DEFAULT_INPUT = Path("data") / "smiles.csv"
+DEFAULT_OUTPUT = Path("data") / "mol_features.csv"
+DEFAULT_GLAXO = Path("data") / "glaxo_filters.csv"
+
+
+def make_filter_catalog(catalog_name) -> FilterCatalog.FilterCatalog:
+    params = FilterCatalogParams()
+    params.AddCatalog(catalog_name)
+    return FilterCatalog.FilterCatalog(params)
+
+
+def filter_mols(smiles: str, catalog: FilterCatalog.FilterCatalog) -> Tuple[Optional[bool], List[str]]:
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
         return None, []
@@ -32,98 +31,120 @@ def filter_mols(smiles, catalog):
     return False, []
 
 
-# Glaxo
-if GLAXO_PATH.exists():
-    try:
-        glaxo_filters = pd.read_csv(GLAXO_PATH, sep=';')
-        glaxo_catalog = [(row['smarts'], Chem.MolFromSmarts(row['smarts'])) for _, row in glaxo_filters.iterrows()]
-        print(f"Glaxo filters loaded from {GLAXO_PATH}")
-    except Exception as e:
-        print(f"Error loading Glaxo filters: {e}")
-        glaxo_catalog = None
-else:
-    glaxo_catalog = None
-    print(f"Glaxo filters file not found: {GLAXO_PATH}. Skipping Glaxo filter.")
+def load_glaxo_catalog(glaxo_path: Path) -> Optional[List[Tuple[str, Any]]]:
+    if not glaxo_path.exists():
+        print(f"Glaxo filters file not found: {glaxo_path}. Skipping Glaxo filter.")
+        return None
+
+    glaxo_filters = pd.read_csv(glaxo_path, sep=";")
+    if "smarts" not in glaxo_filters.columns:
+        raise ValueError(f"Glaxo filters file must contain a 'smarts' column: {glaxo_path}")
+
+    catalog = []
+    for _, row in glaxo_filters.iterrows():
+        pattern = Chem.MolFromSmarts(row["smarts"])
+        if pattern is not None:
+            catalog.append((row["smarts"], pattern))
+    print(f"Loaded {len(catalog)} Glaxo filters from {glaxo_path}")
+    return catalog
 
 
-def calc_glaxo(smiles, catalog):
+def calc_glaxo(smiles: str, catalog: Optional[List[Tuple[str, Any]]]) -> Tuple[Optional[bool], List[str]]:
     if catalog is None:
-        return None, [] # Skip Glaxo filter
-    
+        return None, []
+
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
         return None, []
-    found_structs = []
-    for smarts_str, pattern in catalog:
-        if pattern and mol.HasSubstructMatch(pattern):
-            found_structs.append(smarts_str)
-    if found_structs:
-        return True, found_structs
-    return False, found_structs
+
+    found_structs = [smarts for smarts, pattern in catalog if mol.HasSubstructMatch(pattern)]
+    return bool(found_structs), found_structs
 
 
-def process_smiles(brenk_catalog, pains_catalog, glaxo_catalog):
-    df = pd.read_csv(DATAPATH / INPUT_FILE)
+def lipinski_violations(mw: float, logp: float, hbd: int, hba: int) -> int:
+    violations = 0
+    if mw > 500:
+        violations += 1
+    if logp > 5:
+        violations += 1
+    if hbd > 5:
+        violations += 1
+    if hba > 10:
+        violations += 1
+    return violations
+
+
+def process_smiles(input_path: Path, output_path: Path, glaxo_path: Path) -> None:
+    df = pd.read_csv(input_path)
+    required_columns = {"latin_name", "smiles", "non_canonical_smiles", "iupac"}
+    missing_columns = required_columns.difference(df.columns)
+    if missing_columns:
+        raise ValueError(f"Input file is missing columns {sorted(missing_columns)}: {input_path}")
+
+    brenk_catalog = make_filter_catalog(FilterCatalogParams.FilterCatalogs.BRENK)
+    pains_catalog = make_filter_catalog(FilterCatalogParams.FilterCatalogs.PAINS)
+    glaxo_catalog = load_glaxo_catalog(glaxo_path)
+    rascore_scorer = RAscore_XGB.RAScorerXGB()
+
     results = []
-
-    use_glaxo = glaxo_catalog is not None
-
     for _, row in df.iterrows():
-        smiles = row['smiles']
+        smiles = row["smiles"]
         mol = Chem.MolFromSmiles(smiles)
-        if mol:
-            # Descriptors
-            mw = Descriptors.MolWt(mol)
-            logp = Descriptors.MolLogP(mol)
-            hbd = Lipinski.NumHDonors(mol)
-            hba = Lipinski.NumHAcceptors(mol)
-            xgb_scorer = RAscore_XGB.RAScorerXGB()
+        if mol is None:
+            results.append({"smiles": smiles, "error": "Invalid SMILES"})
+            continue
 
-            # Lipinski
-            violations = 0
-            if mw > 500: violations += 1
-            if logp > 5: violations += 1
-            if hbd > 5: violations += 1
-            if hba > 10: violations += 1
+        mw = Descriptors.MolWt(mol)
+        logp = Descriptors.MolLogP(mol)
+        hbd = Lipinski.NumHDonors(mol)
+        hba = Lipinski.NumHAcceptors(mol)
+        violations = lipinski_violations(mw, logp, hbd, hba)
 
-            # Filters
-            brenk_alert, brenk_matches = filter_mols(smiles, brenk_catalog)
-            pains_alert, pains_matches = filter_mols(smiles, pains_catalog)
-            if use_glaxo:
-                glaxo_alert, glaxo_matches = calc_glaxo(smiles, glaxo_catalog)
+        brenk_alert, brenk_matches = filter_mols(smiles, brenk_catalog)
+        pains_alert, pains_matches = filter_mols(smiles, pains_catalog)
+        glaxo_alert, glaxo_matches = calc_glaxo(smiles, glaxo_catalog)
 
-            res = {
-                'latin_name': row['latin_name'],
-                'smiles': smiles,
-                'non_canonical_smiles': row['non_canonical_smiles'],
-                'iupac': row['iupac'],
-                'qed': round(QED.qed(mol), 2),
-                'sa': round(sascorer.calculateScore(mol), 2),
-                'mw': round(mw, 2),
-                'logp': round(logp, 2),
-                'rascore': xgb_scorer.predict(smiles),
-                'lipinski': violations <= 1,
-                'lipinski_violations_0': violations == 0,
-                'brenk': brenk_alert,
-                'brenk_matches': ", ".join(brenk_matches) if brenk_matches != [] else "",
-                'pains': pains_alert,
-                'pains_matches': ", ".join(pains_matches) if pains_matches != [] else "",
+        results.append(
+            {
+                "latin_name": row["latin_name"],
+                "smiles": smiles,
+                "non_canonical_smiles": row["non_canonical_smiles"],
+                "iupac": row["iupac"],
+                "qed": round(QED.qed(mol), 2),
+                "sa": round(sascorer.calculateScore(mol), 2),
+                "mw": round(mw, 2),
+                "logp": round(logp, 2),
+                "rascore": rascore_scorer.predict(smiles),
+                "lipinski": violations <= 1,
+                "lipinski_violations_0": violations == 0,
+                "brenk": brenk_alert,
+                "brenk_matches": ", ".join(brenk_matches),
+                "pains": pains_alert,
+                "pains_matches": ", ".join(pains_matches),
+                "glaxo": glaxo_alert,
+                "glaxo_matches": ", ".join(glaxo_matches),
             }
+        )
 
-            if use_glaxo:
-                res['glaxo'] = glaxo_alert
-                res['glaxo_matches'] = ", ".join(glaxo_matches) if glaxo_matches != [] else ""
-            
-            results.append(res)
-        else:
-            results.append({'smiles': smiles, 'error': 'Invalid SMILES'})
-
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     output_df = pd.DataFrame(results)
-    output_df.to_csv(DATAPATH / OUTPUT_FILE, index=False)
-
+    output_df.to_csv(output_path, index=False)
     print(output_df.head())
-    print(f'Results saved to {DATAPATH / OUTPUT_FILE}')
+    print(f"Results saved to {output_path}")
 
 
-# To run this, ensure input file is uploaded
-process_smiles(BRENK_catalog, PAINS_catalog, glaxo_catalog)
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Calculate molecular features from SMILES.")
+    parser.add_argument("--input", type=Path, default=DEFAULT_INPUT)
+    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--glaxo", type=Path, default=DEFAULT_GLAXO)
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    process_smiles(input_path=args.input, output_path=args.output, glaxo_path=args.glaxo)
+
+
+if __name__ == "__main__":
+    main()

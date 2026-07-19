@@ -1,50 +1,62 @@
 ## Installation
 
-If you don't have SMILES dataset firstly **(else skip this step)**:
-1. Install **conda environment** from the `lj_scratch_convert_env.yml`
+If you do not have a SMILES dataset yet, start from steps 1-2. Otherwise, skip
+directly to feature calculation.
+
+1. Install the conda environment for scraping and PubChem conversion:
 ```shell
 conda env create -f lj_scratch_convert_env.yml
 
 conda activate lj_scratch_convert
 ```
 
-Then you can use the sample of scratcher `scratching.py` and latin name to SMILES converter `convert_to_smiles.py` (check [usage](#usage)).
+Then you can use `scratching.py` and `convert_to_smiles.py` (see
+[Usage](#usage)).
 
-2. Install **conda environment** from the `lj_get_features_env.yml`
+2. Install the conda environment for feature calculation:
 ```shell
 conda env create -f lj_get_features_env.yml
-```
-3. Activate conda environment
-```shell
+
 conda activate lj_get_features
 ```
-4. Download `sascorer.py` and `fpscores.pkl.gz` from [rdkit github repository](https://github.com/rdkit/rdkit/tree/master/Contrib/SA_Score) directly in this folder (chemai-project/benchmark). Or you can do it via wget
+
+3. Download `sascorer.py` and `fpscores.pkl.gz` from the
+[RDKit SA_Score repository](https://github.com/rdkit/rdkit/tree/master/Contrib/SA_Score)
+directly into this folder (`chemai-project/benchmark`). Or do it via wget:
 ```shell
-!wget https://raw.githubusercontent.com/rdkit/rdkit/master/Contrib/SA_Score/sascorer.py
+wget https://raw.githubusercontent.com/rdkit/rdkit/master/Contrib/SA_Score/sascorer.py
 ```
 ```shell
-!wget https://raw.githubusercontent.com/rdkit/rdkit/master/Contrib/SA_Score/fpscores.pkl.gz
+wget https://raw.githubusercontent.com/rdkit/rdkit/master/Contrib/SA_Score/fpscores.pkl.gz
 ```
 
 ## Usage
 
-1. Example of scratching latin compounds name is `scratching.py`. Use the `lj_scratch_convert` envitonment.
-```shell
-python scratching.py
-```
-The results will appear at `data/molecules_by_latin.csv`
+Run commands from the repository root unless you pass explicit paths.
 
-2. To convert latin names to SMILES use `convert_to_smiles.py`. Use the `lj_scratch_convert` envitonment.
+1. Scrape Latin compound names with `scratching.py`. Use the
+`lj_scratch_convert` environment.
 ```shell
-python convert_to_smiles.py
+python benchmark/scratching.py --base-url "https://example.org/molecule/"
+```
+The results will appear at `data/molecules_by_latin.csv` by default. The
+`--base-url` value must be the URL prefix before the numeric molecule ID.
+
+2. Convert Latin names to SMILES with `convert_to_smiles.py`. Use the
+`lj_scratch_convert` environment.
+```shell
+python benchmark/convert_to_smiles.py
 ```
 The results will appear at `data/smiles.csv`
 
-3. To get molecule features from SMILES use `get_features.py`. Use the `lj_get_features` envitonment.
+3. Calculate molecule features from SMILES with `get_features.py`. Use the
+`lj_get_features` environment.
 
-Before running this script you should put `glaxo_filters.csv` file with divider `;` into the `data` directory if you want to use Glaxo filters. Or you can run this script without glaxo filters file.
+Before running this script, put `glaxo_filters.csv` with `;` as the separator
+into the `data` directory if you want to use Glaxo filters. The script can also
+run without this file.
 
 ```shell
-python get_smiles.py
+python benchmark/get_features.py
 ```
 The results will appear at `data/mol_features.csv`
