@@ -1,6 +1,7 @@
 .vscode
 __pycache__
 data/*
+!data/README.md
 !data/glaxo_filters.csv
 !data/graphs/
 !data/graphs/*.csv
