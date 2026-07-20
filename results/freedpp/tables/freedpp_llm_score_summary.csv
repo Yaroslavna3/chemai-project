@@ -1,0 +1,7 @@
+Target,Trajectory,ValidN,Mean,SD,Median,IQR_Q1,IQR_Q3
+1KZN,Docking + metrics,1000,0.343,0.086,0.300,0.300,0.400
+1KZN,LLM + docking,1000,0.795,0.135,0.850,0.750,0.850
+1KZN,LLM + docking + metrics,1000,0.774,0.164,0.850,0.700,0.850
+3FQS,Docking + metrics,1000,0.444,0.065,0.450,0.450,0.450
+3FQS,LLM + docking,1000,0.714,0.072,0.750,0.650,0.750
+3FQS,LLM + docking + metrics,999,0.707,0.070,0.650,0.650,0.750
