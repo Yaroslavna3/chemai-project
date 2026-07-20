@@ -1,0 +1,9 @@
+{
+  "api_base": "https://your-provider.example/v1",
+  "api_key": "",
+  "model": "qwen/qwen3-14b",
+  "temperature": 0.1,
+  "max_tokens": 1500,
+  "retries": 2,
+  "extra_headers": {}
+}

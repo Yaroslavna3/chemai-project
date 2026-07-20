@@ -76,3 +76,10 @@ strategy in the config:
 
 Each run folder in `data/analysis/` stores the resolved config, rendered
 prompts, sampled molecules, detailed results, and summary tables.
+
+## FreeDPP Custom Overlay
+
+The `freedpp_custom/` folder contains the minimal FreeDPP files used for
+LLM-guided molecule generation experiments: changed `main.py` and
+`reward.py`, receptor files, LLM config template, and SLURM launch scripts for
+train, sample, and evaluate stages.

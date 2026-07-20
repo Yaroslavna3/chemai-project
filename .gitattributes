@@ -1,0 +1,7 @@
+*.sh text eol=lf
+*.py text eol=lf
+*.json text eol=lf
+*.csv text eol=lf
+*.pdb text eol=lf -whitespace
+*.pdbqt text eol=lf -whitespace
+*.md text eol=lf

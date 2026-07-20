@@ -1,0 +1,17 @@
+# Local secrets
+configs/llm_config.json
+configs/*secret*.json
+configs/*secrets*.json
+.env
+
+# Runtime outputs
+experiments/
+.runtime/
+*.out
+*.err
+*.log
+
+# Python/cache
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
