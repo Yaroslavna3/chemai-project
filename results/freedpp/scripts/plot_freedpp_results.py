@@ -13,6 +13,10 @@ import matplotlib.pyplot as plt
 PY2 = sys.version_info[0] == 2
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 TARGETS = ["1kzn", "3fqs"]
+TARGET_STYLE = {
+    "1kzn": {"color": "#0072B2", "hatch": ""},
+    "3fqs": {"color": "#D55E00", "hatch": "///"},
+}
 TRAJECTORIES = {
     "docking_and_metrics": {
         "title": "Docking + metrics",
@@ -26,6 +30,14 @@ TRAJECTORIES = {
         "title": "LLM + docking + metrics",
         "metrics": ["DrugLikenessProperty", "DockingScoreProperty", "LogPProperty"],
     },
+}
+METRIC_ALIASES = {
+    "DrugLikenessProperty": ["DrugLikenessProperty", "DrugLikenessMean", "score"],
+    "DockingScoreProperty": ["DockingScoreProperty", "DockingScoreMean"],
+    "LogPProperty": ["LogPProperty", "LogPMean"],
+    "HeavyAtomCountProperty": ["HeavyAtomCountProperty", "HeavyAtomCountMean"],
+    "Reward": ["Reward", "RewardMean"],
+    "score": ["score", "DrugLikenessProperty", "DrugLikenessMean"],
 }
 
 
@@ -80,11 +92,19 @@ def metric_label(metric):
     return labels.get(metric, metric.replace("Property", ""))
 
 
+def value_for_metric(row, metric):
+    for alias in METRIC_ALIASES.get(metric, [metric]):
+        value = to_float(row.get(alias))
+        if value is not None:
+            return value
+    return None
+
+
 def read_epoch_series(path, metric):
     points = []
     for row in read_rows(path):
         epoch = to_float(row.get("Epoch"))
-        value = to_float(row.get(metric))
+        value = value_for_metric(row, metric)
         if epoch is None or value is None:
             continue
         points.append((int(epoch), value))
@@ -114,7 +134,16 @@ def plot_training_dynamics():
                     continue
                 epochs = [point[0] for point in points]
                 values = [point[1] for point in points]
-                ax.plot(epochs, values, marker="o", markersize=3, linewidth=1.8, label=target.upper())
+                style = TARGET_STYLE[target]
+                ax.plot(
+                    epochs,
+                    values,
+                    marker="o",
+                    markersize=3,
+                    linewidth=1.8,
+                    color=style["color"],
+                    label=target.upper(),
+                )
                 ax.annotate(
                     "{:.2f}".format(values[-1]),
                     xy=(epochs[-1], values[-1]),
@@ -139,7 +168,7 @@ def plot_training_dynamics():
 def values_from_sample(path, metric):
     values = []
     for row in read_rows(path):
-        value = to_float(row.get(metric))
+        value = value_for_metric(row, metric)
         if value is not None:
             values.append(value)
     return values
@@ -213,16 +242,24 @@ def plot_final_samples():
             for target, values in series:
                 all_values.extend(values)
             bins = make_bins(all_values, 24)
-            for target, values in series:
+            bar_count = len(series)
+            for series_idx, (target, values) in enumerate(series):
                 counts = histogram_counts(values, bins)
+                full_width = (bins[1] - bins[0]) if len(bins) > 1 else 1
+                bar_width = full_width / max(bar_count, 1)
+                offset = series_idx * bar_width
+                style = TARGET_STYLE[target.lower()]
                 ax.bar(
-                    bins[:-1],
+                    [left + offset for left in bins[:-1]],
                     counts,
-                    width=(bins[1] - bins[0]) if len(bins) > 1 else 1,
+                    width=bar_width,
                     align="edge",
-                    alpha=0.55,
+                    alpha=0.68,
+                    color=style["color"],
                     label=target,
-                    edgecolor="white",
+                    edgecolor="#222222",
+                    linewidth=0.35,
+                    hatch=style["hatch"],
                 )
                 plotted = True
                 any_metric = True
