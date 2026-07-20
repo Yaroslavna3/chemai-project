@@ -8,24 +8,27 @@ Slurm logs, and API responses with technical failures.
 
 - `llm_judge/absolute_scoring/qwen_absolute_scoring_detailed.csv` contains
   molecule-level Qwen3-14B scores and comments on the absolute-scoring subset.
+- `llm_judge/absolute_scoring/scripts/plot_qwen_absolute_scoring.py` generates
+  the histogram and boxplot figures in `llm_judge/absolute_scoring/images/`.
 
 ## FREED++ Experiments
 
-The FREED++ results are grouped by protein target.
+The FREED++ results are grouped by optimization trajectory.
 
-- `freedpp/1kzn/training/` contains epoch-level summaries and plots for the
-  1KZN optimization runs.
-- `freedpp/1kzn/generation_1000/` contains final generated-molecule evaluation
-  tables and comparison figures for three 1KZN training trajectories.
-- `freedpp/3fqs/training/` contains epoch-level summaries and plots for the
-  3FQS optimization runs.
-- `freedpp/3fqs/generation_1000/` contains 3FQS post-training generation
-  comparison figures and the classical docking-and-properties sample table.
-- `freedpp/tables/` contains compact paper-ready summaries across targets.
+- `freedpp/docking_and_metrics/`: docking score plus classical molecular
+  filters.
+- `freedpp/llm_and_docking/`: LLM drug-likeness score plus docking score.
+- `freedpp/llm_and_all_metrics/`: LLM drug-likeness score plus docking score
+  and classical molecular filters.
 
-The main trajectory names are:
+Each trajectory folder contains:
 
-- `docking_and_properties`: docking score plus classical molecular filters.
-- `llm_and_docking`: LLM drug-likeness score plus docking score.
-- `llm_and_properties`: LLM drug-likeness score plus docking score and
-  classical molecular filters.
+- `data/`: epoch-level summaries and final-sample tables.
+- `images/`: figures generated from the data tables.
+
+Shared FREED++ scripts and cross-trajectory figures are stored in:
+
+- `freedpp/scripts/plot_freedpp_results.py`
+- `freedpp/scripts/summarize_freedpp_samples.py`
+- `freedpp/images/`
+- `freedpp/tables/`
