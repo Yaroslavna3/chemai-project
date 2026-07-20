@@ -75,5 +75,4 @@ strategy in the config:
 ```
 
 Each run folder in `data/analysis/` stores the resolved config, rendered
-prompts, sampled molecules, detailed results, summary tables, plots, and HTML
-reports.
+prompts, sampled molecules, detailed results, and summary tables.

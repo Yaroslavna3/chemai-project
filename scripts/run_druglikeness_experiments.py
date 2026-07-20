@@ -480,44 +480,8 @@ def run_experiments(config_path: Path = CONFIG_PATH, run_id: str | None = None, 
         summary.to_excel(writer, sheet_name="summary", index=False)
         details.to_excel(writer, sheet_name="detailed", index=False)
 
-    write_html_report(run_dir, sample_to_save, summary, details)
     print(f"Done: {run_dir}", flush=True)
     return run_dir
-
-
-def write_html_report(
-    run_dir: Path,
-    sample: pd.DataFrame,
-    summary: pd.DataFrame,
-    details: pd.DataFrame,
-):
-    style = """
-    <style>
-      body { font-family: Arial, sans-serif; margin: 24px; color: #1f2933; }
-      h1, h2 { margin: 22px 0 10px; }
-      table { border-collapse: collapse; width: 100%; margin-bottom: 22px; font-size: 13px; }
-      th, td { border: 1px solid #d7dde5; padding: 7px 8px; vertical-align: top; }
-      th { background: #eef2f7; position: sticky; top: 0; }
-      tr:nth-child(even) { background: #fafbfc; }
-      .note { color: #52606d; }
-    </style>
-    """
-    parts = [
-        "<!doctype html><html><head><meta charset='utf-8'>",
-        "<title>Drug-likeness LLM experiments</title>",
-        style,
-        "</head><body>",
-        "<h1>Drug-likeness LLM experiments</h1>",
-        "<p class='note'>Each run folder contains the resolved config, rendered prompts, sample, and results.</p>",
-        "<h2>Sample</h2>",
-        sample.to_html(index=False, escape=True),
-        "<h2>Experiment Summary</h2>",
-        summary.to_html(index=False, escape=True, float_format=lambda x: f"{x:.3f}"),
-        "<h2>Detailed Results</h2>",
-        details.to_html(index=False, escape=True, float_format=lambda x: f"{x:.3f}"),
-        "</body></html>",
-    ]
-    (run_dir / "experiment_report.html").write_text("\n".join(parts), encoding="utf-8")
 
 
 def parse_args() -> argparse.Namespace:
