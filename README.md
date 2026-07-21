@@ -33,7 +33,8 @@ python scripts/run_druglikeness_experiments.py --dry-run
 
 ### Full Experiment Run
 
-Create a local `.env` file with the API base URL and API key before running:
+Copy `.env.example` to a local `.env` file and fill in the API base URL and
+API key before running:
 
 ```dotenv
 API_BASE=https://example.com/v1

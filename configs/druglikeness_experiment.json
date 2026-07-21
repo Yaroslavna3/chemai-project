@@ -16,7 +16,7 @@
   "sample": {
     "strategy": "balanced_per_status",
     "statuses": ["bad", "good", "ambiguous"],
-    "per_status": 10,
+    "per_status": 20,
     "balance_by": "STATUS_REASON"
   },
   "descriptor_columns": ["QED", "SA", "MW", "LOGP", "LIPINSKI", "BRENK", "PAINS", "GLAXO"],
